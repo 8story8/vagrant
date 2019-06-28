@@ -1,0 +1,55 @@
+VAGRANTFILE_API_VERSION = 2
+
+Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
+
+  USER_NAME = "8story8"
+  USER_MAIL = "#{USER_NAME}@blocko.io"
+
+  VM_NUM = 3
+  NAT_NETWORK_START = "3"
+
+  (1..VM_NUM).each do |i|
+    config.vm.define "vm0#{i}" do |machine|
+      machine.vm.box = "centos/7"
+      machine.vm.box_check_update = false
+      machine.vm.network :public_network, bridge: "en0: Wi-Fi (AirPort)", use_dbcp_assigned_default_route: true
+
+      NAT_NETWORK = NAT_NETWORK_START + i.to_s
+
+      machine.vm.provider :virtualbox do |vb|
+        vb.customize ["modifyvm", :id, "--cpus", "2"]
+        vb.customize ["modifyvm", :id, "--memory", "2048"]
+        vb.customize ['modifyvm', :id, "--natnet1", "10." + NAT_NETWORK + "/16"]
+      end
+
+      machine.ssh.insert_key = false
+      machine.ssh.private_key_path = [ "#{ENV['HOME']}/.vagrant.d/insecure_private_key" ]
+
+      machine.vm.synced_folder ".", "/vagrant", disabled: true
+
+      machine.vm.provision "shell", inline: "sudo ln -sf /usr/share/zoneinfo/$1 /etc/localtime; echo $1 | sudo tee /etc/timezone"
+
+      machine.vm.provision "shell", inline: "[ -n \"$(command -v yum)\" ] && sudo yum install -y net-tools"
+      machine.vm.provision "shell", inline: "echo \"$(netstat -rn | grep \"^0.0.0.0 \" | cut -d \" \" -f10)  #{USER_NAME}\" >> /etc/hosts"
+
+      machine.vm.provision "shell", inline: "useradd -m -s /bin/bash -U #{USER_NAME}"
+      machine.vm.provision "shell", inline: "echo '%#{USER_NAME} ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/#{USER_NAME}"
+
+      machine.vm.provision "shell", inline: "mkdir -p /home/#{USER_NAME}/.ssh"
+      machine.vm.provision "file", source: "~/.ssh/#{USER_MAIL}.pub", destination: "authorized_keys"
+      machine.vm.provision "file", source: "~/.ssh/#{USER_MAIL}", destination: "#{USER_MAIL}"
+      machine.vm.provision "file", source: "~/.ssh/config", destination: "config"
+      machine.vm.provision "shell", inline: "mv authorized_keys /home/#{USER_NAME}/.ssh"
+      machine.vm.provision "shell", inline: "mv #{USER_MAIL} /home/#{USER_NAME}/.ssh"
+      machine.vm.provision "shell", inline: "mv config /home/#{USER_NAME}/.ssh"
+      machine.vm.provision "shell", inline: "chmod 700 /home/#{USER_NAME}/.ssh"
+      machine.vm.provision "shell", inline: "chmod 600 /home/#{USER_NAME}/.ssh/*"
+      machine.vm.provision "shell", inline: "chown -R #{USER_NAME}:#{USER_NAME} /home/#{USER_NAME}/.ssh"
+
+      machine.vm.provision "shell", inline: "echo \"set -o vi\" >> /home/${USER_NAME}/.bash_profile"
+      machine.vm.provision "shell", inline: "echo \"export PATH=.:$PATH\" >> /home/${USER_NAME}/.bash_profile"
+
+      machine.vm.provision "shell", inline: "echo IP Address : $(ip address | grep eth1 | grep inet | awk '{print $2}' | cut -d '/' -f1)"
+    end
+  end
+end
