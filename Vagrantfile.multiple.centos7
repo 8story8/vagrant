@@ -6,7 +6,6 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
   USER_MAIL = "#{USER_NAME}@blocko.io"
 
   VM_NUM = 3
-  NAT_NETWORK_START = "3"
 
   (1..VM_NUM).each do |i|
     config.vm.define "vm0#{i}" do |machine|
@@ -14,12 +13,9 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
       machine.vm.box_check_update = false
       machine.vm.network :public_network, bridge: "en0: Wi-Fi (AirPort)", use_dbcp_assigned_default_route: true
 
-      NAT_NETWORK = NAT_NETWORK_START + i.to_s
-
       machine.vm.provider :virtualbox do |vb|
         vb.customize ["modifyvm", :id, "--cpus", "2"]
         vb.customize ["modifyvm", :id, "--memory", "2048"]
-        vb.customize ['modifyvm', :id, "--natnet1", "10." + NAT_NETWORK + "/16"]
       end
 
       machine.ssh.insert_key = false
